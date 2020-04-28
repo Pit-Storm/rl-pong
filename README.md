@@ -4,10 +4,10 @@ This repository shows the work of a university term paper. The goal is to let a 
 
 ## Setup
 
-1. Python 3.8x
-2. (optional) Create a virtualenv
-3. `pip install -r requirements.txt`
+1. Python 3.7x
+2. Create two virtualenvs: one for tf2 one for tf1
+3. in virtualenv tf2: `pip install -r requirements.txt` and for tf1 `pip install -r requirements-tf1.txt`
 
 ## Run the code
 
-1. `jupyter notebook`
+Run `jupyter notebook` in the prefered env. Some code must be run from the terminal to work.
