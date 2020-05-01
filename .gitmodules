@@ -1,4 +1,0 @@
-[submodule "openai-baselines"]
-	path = "notebooks/04_PM_openai-baselines"
-	url = "git@github.com:openai/baselines.git"
-    branch = "tf2"
