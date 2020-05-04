@@ -16,8 +16,8 @@ from tensorflow.python.keras import layers
 
 tf.enable_eager_execution()
 
-parser = argparse.ArgumentParser(description='Run A3C algorithm on the game '
-                                             'Cartpole.')
+parser = argparse.ArgumentParser(description='Run A3C algorithm on game in OpenAI'
+                                             'Gym env.')
 parser.add_argument('--algorithm', default='a3c', type=str,
                     help='Choose between \'a3c\' and \'random\'.')
 parser.add_argument('--train', dest='train', action='store_true',
@@ -32,6 +32,8 @@ parser.add_argument('--gamma', default=0.99,
                     help='Discount factor of rewards.')
 parser.add_argument('--save-dir', default='./tmp/', type=str,
                     help='Directory in which you desire to save the model.')
+parser.add_argument('--game', default='CartPole-v0', type=str,
+                    help='Choose the env in which to train the agent. Default is "CartPole-v0"')
 args = parser.parse_args()
 
 class ActorCriticModel(keras.Model):
@@ -126,7 +128,7 @@ class RandomAgent:
 
 class MasterAgent():
   def __init__(self):
-    self.game_name = 'CartPole-v0'
+    self.game_name = args.game
     save_dir = args.save_dir
     self.save_dir = save_dir
     if not os.path.exists(save_dir):
@@ -235,7 +237,7 @@ class Worker(threading.Thread):
                opt,
                result_queue,
                idx,
-               game_name='CartPole-v0',
+               game_name=args.game,
                save_dir='./tmp'):
     super(Worker, self).__init__()
     self.state_size = state_size
