@@ -22,13 +22,13 @@ parser.add_argument('--algorithm', default='a3c', type=str,
                     help='Choose between \'a3c\' and \'random\'.')
 parser.add_argument('--train', dest='train', action='store_true',
                     help='Train our model.')
-parser.add_argument('--lr', default=0.001,
+parser.add_argument('--lr', default=0.001, type=float, 
                     help='Learning rate for the shared optimizer.')
 parser.add_argument('--update-freq', default=20, type=int,
                     help='How often to update the global model.')
 parser.add_argument('--max-eps', default=1000, type=int,
                     help='Global maximum number of episodes to run.')
-parser.add_argument('--gamma', default=0.99,
+parser.add_argument('--gamma', default=0.99, type=float,
                     help='Discount factor of rewards.')
 parser.add_argument('--save-dir', default='./tmp/', type=str,
                     help='Directory in which you desire to save the model.')
@@ -41,25 +41,17 @@ class ActorCriticModel(keras.Model):
     super(ActorCriticModel, self).__init__()
     self.state_size = state_size
     self.action_size = action_size
-    self.dense1 = layers.Dense(100, activation='relu')
+    self.dense1 = layers.Dense(1000, activation='relu')
     self.policy_logits = layers.Dense(action_size)
-    self.dense2 = layers.Dense(100, activation='relu')
+    self.dense2 = layers.Dense(1000, activation='relu')
     self.values = layers.Dense(1)
 
   def call(self, inputs):
     # Forward pass
-    # print(inputs.numpy().shape)
-    # print("inputs: {}".format(inputs.numpy()))
     x = self.dense1(inputs)
-    # print(x.numpy().shape)
     logits = self.policy_logits(x)
-    # print(logits.numpy().shape)
-    # print("logits: {}".format(logits.numpy()))
     v1 = self.dense2(inputs)
-    # print(v1.numpy().shape)
     values = self.values(v1)
-    # print(values.numpy().shape)
-    # print("values: {}".format(values.numpy()))
     return logits, values
 
 def record(episode,
@@ -200,14 +192,14 @@ class MasterAgent():
     try:
       while not done:
         env.render(mode='rgb_array')
-        policy, value = model(
+        logits, value = model(
           tf.reshape(
             tf.convert_to_tensor(
               current_state[None, :],dtype=tf.float32),
             [1,np.prod(np.array(current_state).shape)]
           )
         )
-        policy = tf.nn.softmax(policy)
+        policy = tf.nn.softmax(logits)
         action = np.argmax(policy)
         state, reward, done, _ = env.step(action)
         reward_sum += reward
@@ -286,20 +278,13 @@ class Worker(threading.Thread):
             [1,np.prod(np.array(current_state).shape)]
           )
         )
+
         probs = tf.nn.softmax(logits)
-        
-        # import pickle
-        # with open('notebooks/'+ self.game_name +'_probs.pickle', 'wb') as handle:
-        #   pickle.dump(probs, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        # tf.print(probs.numpy()[-1])
-        # print("logits shape: {}".format(logits.numpy()[0]))
-
-        # FIXME: Dimension of probs.numpy() for Pong-v0 has wrong dimension
         action = np.random.choice(self.action_size, p=probs.numpy()[0])
         new_state, reward, done, _ = self.env.step(action)
-        # if done:
-        #   reward = -1
+        if done:
+          reward = -1
         ep_reward += reward
         mem.store(np.reshape(current_state,np.prod(np.array(current_state).shape)), action, reward)
 
@@ -366,17 +351,6 @@ class Worker(threading.Thread):
       reward_sum = reward + gamma * reward_sum
       discounted_rewards.append(reward_sum)
     discounted_rewards.reverse()
-
-    # FIXME: reshape memory_states correctly
-    memory_states = np.vstack(memory.states)
-    # print("memory_states: {}".format(memory_states.shape))
-    # logits, values = self.local_model(
-    #   tf.reshape(
-    #     tf.convert_to_tensor(
-    #       memory_states,dtype=tf.float32),
-    #     [memory_states.shape[0],np.prod(memory_states.shape[1:-1])]
-    #   )
-    # )
 
     logits, values = self.local_model(
         tf.convert_to_tensor(np.vstack(memory.states),
