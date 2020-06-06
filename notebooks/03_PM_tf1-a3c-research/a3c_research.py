@@ -48,10 +48,18 @@ class ActorCriticModel(keras.Model):
 
   def call(self, inputs):
     # Forward pass
+    # print(inputs.numpy().shape)
+    # print("inputs: {}".format(inputs.numpy()))
     x = self.dense1(inputs)
+    # print(x.numpy().shape)
     logits = self.policy_logits(x)
+    # print(logits.numpy().shape)
+    # print("logits: {}".format(logits.numpy()))
     v1 = self.dense2(inputs)
+    # print(v1.numpy().shape)
     values = self.values(v1)
+    # print(values.numpy().shape)
+    # print("values: {}".format(values.numpy()))
     return logits, values
 
 def record(episode,
@@ -135,10 +143,10 @@ class MasterAgent():
       os.makedirs(save_dir)
 
     env = gym.make(self.game_name)
-    self.state_size = env.observation_space.shape
+    self.state_size = [np.prod(env.observation_space.shape)]
     self.action_size = env.action_space.n
     self.opt = tf.train.AdamOptimizer(args.lr, use_locking=True)
-    print(self.state_size, self.action_size)
+    print("State size is - {} - and action size is - {} -".format(self.state_size, self.action_size))
 
     self.global_model = ActorCriticModel(self.state_size, self.action_size)  # global network
     self.global_model(tf.convert_to_tensor(np.random.random((1, *self.state_size)), dtype=tf.float32))
@@ -179,7 +187,7 @@ class MasterAgent():
     plt.show()
 
   def play(self):
-    env = gym.make(self.game_name).unwrapped
+    env = gym.make(self.game_name)
     state = env.reset()
     model = self.global_model
     model_path = os.path.join(self.save_dir, 'model_{}.h5'.format(self.game_name))
@@ -192,7 +200,13 @@ class MasterAgent():
     try:
       while not done:
         env.render(mode='rgb_array')
-        policy, value = model(tf.convert_to_tensor(state[None, :], dtype=tf.float32))
+        policy, value = model(
+          tf.reshape(
+            tf.convert_to_tensor(
+              current_state[None, :],dtype=tf.float32),
+            [1,np.prod(np.array(current_state).shape)]
+          )
+        )
         policy = tf.nn.softmax(policy)
         action = np.argmax(policy)
         state, reward, done, _ = env.step(action)
@@ -238,7 +252,7 @@ class Worker(threading.Thread):
                result_queue,
                idx,
                game_name=args.game,
-               save_dir='./tmp'):
+               save_dir=args.save_dir):
     super(Worker, self).__init__()
     self.state_size = state_size
     self.action_size = action_size
@@ -248,7 +262,7 @@ class Worker(threading.Thread):
     self.local_model = ActorCriticModel(self.state_size, self.action_size)
     self.worker_idx = idx
     self.game_name = game_name
-    self.env = gym.make(self.game_name).unwrapped
+    self.env = gym.make(self.game_name)
     self.save_dir = save_dir
     self.ep_loss = 0.0
 
@@ -266,17 +280,28 @@ class Worker(threading.Thread):
       done = False
       while not done:
         logits, _ = self.local_model(
-            tf.convert_to_tensor(current_state[None, :],
-                                 dtype=tf.float32))
+          tf.reshape(
+            tf.convert_to_tensor(
+              current_state[None, :],dtype=tf.float32),
+            [1,np.prod(np.array(current_state).shape)]
+          )
+        )
         probs = tf.nn.softmax(logits)
-        tmp_probs = probs.numpy()[0]
+        
+        # import pickle
+        # with open('notebooks/'+ self.game_name +'_probs.pickle', 'wb') as handle:
+        #   pickle.dump(probs, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+        # tf.print(probs.numpy()[-1])
+        # print("logits shape: {}".format(logits.numpy()[0]))
+
         # FIXME: Dimension of probs.numpy() for Pong-v0 has wrong dimension
         action = np.random.choice(self.action_size, p=probs.numpy()[0])
         new_state, reward, done, _ = self.env.step(action)
-        if done:
-          reward = -1
+        # if done:
+        #   reward = -1
         ep_reward += reward
-        mem.store(current_state, action, reward)
+        mem.store(np.reshape(current_state,np.prod(np.array(current_state).shape)), action, reward)
 
         if time_count == args.update_freq or done:
           # Calculate gradient wrt to local model. We do so by tracking the
@@ -329,9 +354,11 @@ class Worker(threading.Thread):
     if done:
       reward_sum = 0.  # terminal
     else:
-      reward_sum = self.local_model(
-          tf.convert_to_tensor(new_state[None, :],
-                               dtype=tf.float32))[-1].numpy()[0]
+      reward_sum = self.local_model(tf.reshape(
+            tf.convert_to_tensor(
+              new_state[None, :],dtype=tf.float32),
+            [1,np.prod(np.array(new_state).shape)]
+          ))[-1].numpy()[0]
 
     # Get discounted rewards
     discounted_rewards = []
@@ -340,10 +367,23 @@ class Worker(threading.Thread):
       discounted_rewards.append(reward_sum)
     discounted_rewards.reverse()
 
+    # FIXME: reshape memory_states correctly
+    memory_states = np.vstack(memory.states)
+    # print("memory_states: {}".format(memory_states.shape))
+    # logits, values = self.local_model(
+    #   tf.reshape(
+    #     tf.convert_to_tensor(
+    #       memory_states,dtype=tf.float32),
+    #     [memory_states.shape[0],np.prod(memory_states.shape[1:-1])]
+    #   )
+    # )
+
     logits, values = self.local_model(
         tf.convert_to_tensor(np.vstack(memory.states),
                              dtype=tf.float32))
+
     # Get our advantages
+    # print("discounted_reward: {}".format(np.array(discounted_rewards).shape))
     advantage = tf.convert_to_tensor(np.array(discounted_rewards)[:, None],
                             dtype=tf.float32) - values
     # Value loss
