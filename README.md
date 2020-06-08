@@ -8,7 +8,8 @@ This repository shows the work of a university term paper. The goal is to let a 
 2. Create two virtualenvs: one for tf2 one for tf1
 3. in virtualenv tf2: `pip install -r requirements.txt` and for tf1 `pip install -r requirements-tf1.txt`
 4. For older CPUs with non AVX-Instructionset support (It is needed for TF>v1.4) one can install a community build. E.g. [this one for tf 1.14.1 for linux x86/x64](https://github.com/yaroslavvb/tensorflow-community-wheels/issues/132)
-5. 
+5. If there are problems with atari-py on windows see [this answer on github issue](https://github.com/openai/gym/issues/1726#issuecomment-550580367)
+
 ## Run the code
 
 Run `jupyter notebook` in the prefered env. Some code must be run from the terminal to work.

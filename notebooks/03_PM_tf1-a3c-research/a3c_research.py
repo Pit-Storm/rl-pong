@@ -34,6 +34,8 @@ parser.add_argument('--save-dir', default='./tmp/', type=str,
                     help='Directory in which you desire to save the model.')
 parser.add_argument('--game', default='CartPole-v0', type=str,
                     help='Choose the env in which to train the agent. Default is "CartPole-v0"')
+parser.add_argument('--workers', default=multiprocessing.cpu_count(), type=int,
+                    help='Set number of workers. Defaults to number of CPUs.')
 args = parser.parse_args()
 
 class ActorCriticModel(keras.Model):
@@ -151,12 +153,17 @@ class MasterAgent():
 
     res_queue = Queue()
 
+    if args.workers >= multiprocessing.cpu_count():
+      worker_count = multiprocessing.cpu_count()
+    else:
+      worker_count = args.workers
+
     workers = [Worker(self.state_size,
                       self.action_size,
                       self.global_model,
                       self.opt, res_queue,
                       i, game_name=self.game_name,
-                      save_dir=self.save_dir) for i in range(multiprocessing.cpu_count())]
+                      save_dir=self.save_dir) for i in range(worker_count)]
 
     for i, worker in enumerate(workers):
       print("Starting worker {}".format(i))
@@ -195,8 +202,8 @@ class MasterAgent():
         logits, value = model(
           tf.reshape(
             tf.convert_to_tensor(
-              current_state[None, :],dtype=tf.float32),
-            [1,np.prod(np.array(current_state).shape)]
+              state[None, :],dtype=tf.float32),
+            [1,np.prod(np.array(state).shape)]
           )
         )
         policy = tf.nn.softmax(logits)
@@ -335,7 +342,7 @@ class Worker(threading.Thread):
                    done,
                    new_state,
                    memory,
-                   gamma=0.99):
+                   gamma=args.gamma):
     if done:
       reward_sum = 0.  # terminal
     else:
@@ -344,8 +351,11 @@ class Worker(threading.Thread):
               new_state[None, :],dtype=tf.float32),
             [1,np.prod(np.array(new_state).shape)]
           ))[-1].numpy()[0]
+      
+      # print("reward_sum: {}".format(reward_sum))
 
     # Get discounted rewards
+    # TODO: Checkin paper what the discounted rawards are.
     discounted_rewards = []
     for reward in memory.rewards[::-1]:  # reverse buffer r
       reward_sum = reward + gamma * reward_sum
@@ -355,9 +365,12 @@ class Worker(threading.Thread):
     logits, values = self.local_model(
         tf.convert_to_tensor(np.vstack(memory.states),
                              dtype=tf.float32))
+    
+    print("values: {}".format(values))
 
+    # TODO: Checkin paper how the advantage must be calculated
+    # TODO: Modify the advantage to a baseline when parameter has been set.
     # Get our advantages
-    # print("discounted_reward: {}".format(np.array(discounted_rewards).shape))
     advantage = tf.convert_to_tensor(np.array(discounted_rewards)[:, None],
                             dtype=tf.float32) - values
     # Value loss

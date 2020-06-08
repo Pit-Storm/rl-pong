@@ -5,6 +5,11 @@
     "version": "0.2.0",
     "configurations": [
 
+    
+
+
+
+
         {
             "name": "A3C_r: Pong-v0,lr=0.01,g=0.8",
             "type": "python",
@@ -27,7 +32,23 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": ["--game","CartPole-v0","--train"]
+            "args": ["--game","CartPole-v0","--train","--workers","1"]
+        },
+        {
+            "name": "A3C_r: CartPole-v0,play",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["--game","CartPole-v0","--workers","1"]
+        },
+        {
+            "name": "A3C_r: CartPole-v0,random",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": ["--game","CartPole-v0","--algorithm","random","--train"]
         }
     ]
 }
