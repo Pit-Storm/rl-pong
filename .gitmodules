@@ -1,8 +1,0 @@
-[submodule "notebooks/04_PM_openai-baselines"]
-	path = notebooks/04_PM_openai-baselines
-	url = git@github.com:openai/baselines.git
-	branch = tf2
-[submodule "nvlabs-ga3c"]
-	path = notebooks/05_PM_tf1_ga3c
-	url = git@github.com:Pit-Storm/GA3C.git
-	branch = windows-scripts
