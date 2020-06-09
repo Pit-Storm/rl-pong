@@ -1,0 +1,4 @@
+[submodule "scripts/chainerrl"]
+	path = scripts/chainerrl
+	url = https://github.com/chainer/chainerrl.git
+	branch = master
