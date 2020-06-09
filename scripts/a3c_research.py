@@ -1,20 +1,36 @@
-import argparse
-import multiprocessing
-import os
-import threading
-from queue import Queue
+import warnings  
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore",category=FutureWarning)
 
-import gym
-import matplotlib.pyplot as plt
-import numpy as np
+    import os
+    import sys
 
-import tensorflow as tf
-from tensorflow.python import keras
-from tensorflow.python.keras import layers
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    from tensorflow.python.util import deprecation
+    deprecation._PRINT_DEPRECATION_WARNINGS = False
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    import argparse
+    import multiprocessing
+    import threading
+    from queue import Queue
+
+    import gym
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    import tensorflow as tf
+    from tensorflow.python import keras
+    from tensorflow.python.keras import layers
+
+    from datetime import datetime
+
+    import shelve
 
 tf.enable_eager_execution()
+
+format_str = "%Y-%m-%d_%H-%M-%S"
+timestamp = datetime.now().strftime(format_str)
 
 parser = argparse.ArgumentParser(
     description='Run A3C algorithm on game in OpenAI Gym env.')
@@ -30,7 +46,7 @@ parser.add_argument('--max-eps', default=1000, type=int,
                     help='Global maximum number of episodes to run.')
 parser.add_argument('--gamma', default=0.99, type=float,
                     help='Discount factor of rewards.')
-parser.add_argument('--save-dir', default='./tmp/', type=str,
+parser.add_argument('--save-dir', default=f'./data/{timestamp}/', type=str,
                     help='Directory in which you desire to save the model.')
 parser.add_argument('--game', default='CartPole-v0', type=str,
                     help='Choose the env in which to train the agent. Default is "CartPole-v0"')
@@ -38,6 +54,17 @@ parser.add_argument('--workers', default=multiprocessing.cpu_count(), type=int,
                     help='Set number of workers. Defaults to number of CPUs.')
 args = parser.parse_args()
 
+def plotting(moving_average_rewards, save_dir):
+
+    plt.plot(moving_average_rewards)
+    plt.ylabel('Moving average ep reward')
+    plt.xlabel('Episodes')
+    plt.savefig(os.path.join(save_dir,"results_plot.png"))
+    # plt.show()
+
+def save_rewards(moving_average_rewards):
+    with shelve.open('./data/moving_average_rewards_models') as file:
+        file[timestamp] = moving_average_rewards
 
 class ActorCriticModel(keras.Model):
     def __init__(self, state_size, action_size):
@@ -73,7 +100,8 @@ def record(episode,
       worker_idx: Which thread (worker)
       global_ep_reward: The moving average of the global reward
       result_queue: Queue storing the moving average of the scores
-      total_loss: The total loss accumualted over the current episode
+      
+      total_loss: The total loss accumulated over the current episode
       num_steps: The number of steps the episode took to complete
     """
     if global_ep_reward == 0:
@@ -88,6 +116,7 @@ def record(episode,
         f"Steps: {num_steps} | "
         f"Worker: {worker_idx}"
     )
+    
     result_queue.put(global_ep_reward)
     return global_ep_reward
 
@@ -136,15 +165,16 @@ class RandomAgent:
 class MasterAgent():
     def __init__(self):
         self.game_name = args.game
-        save_dir = args.save_dir
-        self.save_dir = save_dir
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+        if not args.train and not os.path.isdir(args.save_dir):
+            # set save_dir to first subfolder in data dir to load a random model
+            self.save_dir = os.path.join('./data/', next(os.scandir("./data")).name)
+        else:
+            self.save_dir = args.save_dir
 
         env = gym.make(self.game_name)
         self.state_size = [np.prod(env.observation_space.shape)]
         self.action_size = env.action_space.n
-        self.opt = tf.train.AdamOptimizer(args.lr, use_locking=True)
+        self.opt = tf.train.RMSPropOptimizer(args.lr, use_locking=True)
         print("State size is - {} - and action size is - {} -".format(
             self.state_size, self.action_size))
 
@@ -186,19 +216,15 @@ class MasterAgent():
                 break
         [w.join() for w in workers]
 
-        plt.plot(moving_average_rewards)
-        plt.ylabel('Moving average ep reward')
-        plt.xlabel('Step')
-        plt.savefig(os.path.join(self.save_dir,
-                                 '{} Moving Average.png'.format(self.game_name)))
-        plt.show()
+        plotting(moving_average_rewards,self.save_dir)
+        save_rewards(moving_average_rewards)
 
     def play(self):
         env = gym.make(self.game_name)
         state = env.reset()
         model = self.global_model
         model_path = os.path.join(
-            self.save_dir, 'model_{}.h5'.format(self.game_name))
+            self.save_dir, f'model_{self.game_name}.h5')
         print('Loading model from: {}'.format(model_path))
         model.load_weights(model_path)
         done = False
@@ -276,7 +302,7 @@ class Worker(threading.Thread):
         self.ep_loss = 0.0
 
     def run(self):
-        total_step = 1
+        # total_step = 1
         mem = Memory()
         while Worker.global_episode < args.max_eps:
             current_state = self.env.reset()
@@ -348,7 +374,7 @@ class Worker(threading.Thread):
 
                 time_count += 1
                 current_state = new_state
-                total_step += 1
+                # total_step += 1
         self.result_queue.put(None)
 
     def compute_loss(self,
@@ -379,7 +405,7 @@ class Worker(threading.Thread):
             tf.convert_to_tensor(np.vstack(memory.states),
                                  dtype=tf.float32))
 
-        print("values: {}".format(values))
+        # print("values: {}".format(values))
 
         # TODO: Checkin paper how the advantage must be calculated
         # TODO: Modify the advantage to a baseline when parameter has been set.
@@ -403,9 +429,18 @@ class Worker(threading.Thread):
 
 
 if __name__ == '__main__':
-    print(args)
+
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir)
+    # write argv to file
+    with open(os.path.join(args.save_dir, 'run_args.txt'), 'w') as f:
+        f.write('\n'.join(sys.argv[1:]))
+
+    # print(args)
     master = MasterAgent()
     if args.train:
         master.train()
     else:
         master.play()
+    
+    parser.exit(status=0)
