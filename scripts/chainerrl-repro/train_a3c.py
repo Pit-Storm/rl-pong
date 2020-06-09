@@ -9,7 +9,13 @@ import gym
 import numpy as np
 
 import chainerrl
-from chainerrl.agents import a3c
+
+# this import statement replaces the original one
+# it is expanded through a switch to disable the advantage function
+# to import to original one just comment out the next line and uncomment the follogwing one
+import a3c
+# from chainerrl.agents import a3c
+
 from chainerrl import experiments
 from chainerrl import links
 from chainerrl import misc
@@ -60,6 +66,8 @@ def main():
     parser.add_argument('--load-pretrained', action='store_true',
                         default=False)
     parser.add_argument('--load', type=str, default='')
+    parser.add_argument('--disadvantage', action='store_true', default=False,
+                        help='Set this option when you disable the advantage function.')
     parser.add_argument('--logging-level', type=int, default=20,
                         help='Logging level. 10:DEBUG, 20:INFO etc.')
     parser.add_argument('--render', action='store_true', default=False,
@@ -110,8 +118,13 @@ def main():
         # Feature extractor
         return np.asarray(x, dtype=np.float32) / 255
 
-    agent = a3c.A3C(model, opt, t_max=args.t_max, gamma=0.99,
-                    beta=args.beta, phi=phi)
+    agent = a3c.A3C(model, opt,
+                    t_max=args.t_max,
+                    gamma=0.99,
+                    beta=args.beta,
+                    phi=phi,
+                    disadvantage=args.disadvantage,
+                    use_average_reward=True)
 
     if args.load or args.load_pretrained:
         # either load or load_pretrained must be false
@@ -169,7 +182,7 @@ def main():
             eval_n_episodes=None,
             eval_interval=args.eval_interval,
             global_step_hooks=[lr_decay_hook],
-            save_best_so_far_agent=False,
+            save_best_so_far_agent=True,
         )
 
 
