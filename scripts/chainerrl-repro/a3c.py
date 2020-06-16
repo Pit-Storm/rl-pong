@@ -176,7 +176,7 @@ class A3C(agent.AttributeSavingMixin, agent.AsyncAgent):
                 R -= self.average_reward
             v = self.past_values[i]
             if self.disadvantage:
-                advantage = R
+                advantage = R - (v * 0)
             else:
                 advantage = R - v
             if self.use_average_reward:
