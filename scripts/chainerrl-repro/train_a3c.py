@@ -17,12 +17,14 @@ import a3c
 # from chainerrl.agents import a3c
 
 from chainerrl import experiments
+from chainerrl.experiments.evaluator import run_evaluation_episodes
 from chainerrl import links
 from chainerrl import misc
 from chainerrl.optimizers.nonbias_weight_decay import NonbiasWeightDecay
 from chainerrl.optimizers import rmsprop_async
 from chainerrl import policies
 from chainerrl import v_functions
+from random_agent import random_agent
 
 from chainerrl.wrappers import atari_wrappers
 
@@ -39,7 +41,6 @@ class A3CFF(chainer.ChainList, a3c.A3CModel):
     def pi_and_v(self, state):
         out = self.head(state)
         return self.pi(out), self.v(out)
-
 
 def main():
 
@@ -61,6 +62,7 @@ def main():
     parser.add_argument('--lr', type=float, default=7e-4)
     parser.add_argument('--eval-interval', type=int, default=250000)
     parser.add_argument('--eval-n-steps', type=int, default=125000)
+    parser.add_argument('--eval-eps', type=int, default=320)
     parser.add_argument('--weight-decay', type=float, default=0.0)
     parser.add_argument('--demo', action='store_true', default=False)
     parser.add_argument('--load-pretrained', action='store_true',
@@ -75,6 +77,8 @@ def main():
     parser.add_argument('--monitor', action='store_true', default=False,
                         help='Monitor env. Videos and additional information'
                              ' are saved as output files.')
+    parser.add_argument('--random-agent', action='store_true', default=False, 
+                        help='Use with demo to get random results.')
     args = parser.parse_args()
 
     import logging
@@ -154,14 +158,29 @@ def main():
 
     if args.demo:
         env = make_env(0, True)
-        eval_stats = experiments.eval_performance(
-            env=env,
-            agent=agent,
-            n_steps=args.eval_n_steps,
-            n_episodes=None)
-        print('n_steps: {} mean: {} median: {} stdev: {}'.format(
-            args.eval_n_steps, eval_stats['mean'], eval_stats['median'],
-            eval_stats['stdev']))
+        if not args.random_agent:
+            eval_stats = experiments.eval_performance(
+                env=env,
+                agent=agent,
+                n_steps=args.eval_n_steps,
+                n_episodes=None)
+            print('n_steps: {} mean: {} median: {} stdev: {}'.format(
+                args.eval_n_steps, eval_stats['mean'], eval_stats['median'],
+                eval_stats['stdev']))
+        else:
+            agent = random_agent(envname=args.env)
+            results = run_evaluation_episodes(
+                env=env,
+                agent=agent,
+                max_episode_len=args.max_frames,
+                n_steps=None,
+                n_episodes=args.eval_eps)
+            
+            with open(os.path.join(args.outdir, 'scores.txt'), 'a+') as f:
+                print('\n'.join(str(result) for result in results), file=f)
+
+            print('episodes: {} mean: {} min: {} max: {}'.format(
+                len(results), sum(results)/len(results), min(results), max(results)))
     else:
 
         # Linearly decay the learning rate to zero
