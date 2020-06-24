@@ -1,6 +1,6 @@
 # RL Pong A3C - Code to University term paper
 
-This repository shows the work of a university term paper. The goal was to let a RL-Agent learn how to play the Atari game PONG. With the trained model(s), there had been made some variance tests to gather deeper understanding about the A3C Algorithm.
+This repository shows the work of a university term paper. The goal was to let a RL-Agent learn how to play the Atari game PONG. With the trained model(s), there had been made some variance tests to gather deeper understanding about the A3C Algorithm and the advantage function.
 
 ## Setup
 
@@ -21,8 +21,17 @@ The script in the dir `scripts` has to be run in the terminal. Check the Readme 
 
 ## Get the results
 
-The results of the training process is provided for [download](). You have to unpack the archive into your local repository. The folder `results` should only contain two folder `disadvantage` and `advantage` with a few other folders inside.
+The results of the training process is provided for [download](). You have to unpack the archive into your local repository root. The folders `results` und `models` than should only contain three folders `disadvantage`, `advantage` and `random` with a few other folders/files inside.
 
 ## Reproduce Analysis
 
-Just run the notebooks `02_*` and above to check the analysis.
+Just run the notebook `notebooks/02_evaluation.ipynb` to check the analysis.
+
+## Reproduce results
+
+Just run the training from repo root with the commands you get from my results folder.
+
+## Run a demo
+
+* For A3C-Agent: `python scripts/chainerrl-repro/train_a3c.py --demo --render --env PongNoFrameskip-v4 --outdir results/advantage --load models/advantage`
+* For advanced REINFORCE-Agent: `python scripts/chainerrl-repro/train_a3c.py --demo --render --env PongNoFrameskip-v4 --outdir results/disadvantage --load models/disadvantage`
