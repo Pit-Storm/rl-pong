@@ -21,7 +21,7 @@ The script in the dir `scripts` has to be run in the terminal. Check the Readme 
 
 ## Get the results
 
-The results of the training process is provided for [download](). You have to unpack the archive into your local repository root. The folders `results` und `models` than should only contain three folders `disadvantage`, `advantage` and `random` with a few other folders/files inside.
+The results of the training process is provided for [download](https://data.petermueller.me/rl-pong/results.zip). You have to unpack the archive into your local repository root. The folders `results` und `models` than should only contain three folders `disadvantage`, `advantage` and `random` with a few other folders/files inside.
 
 ## Reproduce Analysis
 
