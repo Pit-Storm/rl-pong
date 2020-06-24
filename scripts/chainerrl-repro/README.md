@@ -1,3 +1,7 @@
+> Original README of a3c ChainerRL repro. You can see the original repo as a submodule.
+> check it out by `git submodule update --init` in repo root
+> The submodule will be initialized to `scripts/chainerrl`
+
 # A3C
 This example trains an Asynchronous Advantage Actor Critic (A3C) agent, from the following paper: [Asynchronous Methods for Deep Reinforcement Learning](https://arxiv.org/abs/1602.01783). 
 
